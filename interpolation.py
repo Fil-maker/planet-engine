@@ -1,6 +1,6 @@
 import random
 from PIL import Image
-from math import sin
+from math import sin, log2, ceil
 from painting import create_map
 
 
@@ -14,11 +14,11 @@ def get_alpha(row, col, mrows, mcols, size):
 def get_color(number, highest):
     if number <= highest * 0.001:
         return (66, 170, 255)
-    if number <= highest * 0.06:
+    if number <= highest * 0.1:
         return (255, 255, 0)
-    if number <= highest * 0.2:
+    if number <= highest * 0.7:
         return (0, 153, 0)
-    if number <= highest * 0.4:
+    if number <= highest * 0.9:
         return (75, 75, 75)
     return (255, 255, 255)
 
@@ -74,48 +74,16 @@ def interpolate_field(field, to_height, to_width):
 # random.seed(seed)
 # print(seed)
 
-def get_planet(height, width, scales=4):
-    planet_map = create_map(height, width, scales)
-    amplitudes = a1, a2, a3, a4 = [random.randint(0, 255) for _ in range(4)]
-    phases = b1, b2, b3, b4 = [random.randint(-180, 180) for _ in range(4)]
-    size = height // 2, width // 2
-    size2 = height, width
-    compressions = (16, 8, 4, 4)
-    # print(amplitudes, phases)
-
-    texture = create_field(*size)
-
-    field_lv1 = create_field(width // compressions[0], height // compressions[0])
-    field_lv1 = interpolate_field(field_lv1, *size)
-
-    field_lv2 = create_field(width // compressions[1], height // compressions[1])
-    field_lv2 = interpolate_field(field_lv2, *size)
-
-    field_lv3 = create_field(width // compressions[2], height // compressions[2])
-    field_lv3 = interpolate_field(field_lv3, *size)
-
-    field_lv4 = create_field(width // compressions[3], height // compressions[3])
-    field_lv4 = interpolate_field(field_lv4, *size)
-
-    for row in range(len(texture)):
-        for col in range(len(texture[0])):
-            texture[row][col] = (a1 * (sin(b1 * field_lv1[row][col]) + a2 * sin(b2 * field_lv2[row][col]) + a3 * sin(
-                b3 * field_lv3[row][col]) + a4 * sin(b4 * field_lv4[row][col]))) / 255
-
-    # texture = smooth_field(texture, rounding=3)
-    highest = max(map(lambda a: max(a), texture))
-    print(highest)
-
-    im = Image.new("RGBA", size2)
-
-    out = smooth_field(interpolate_field(texture, *size2))
-    # for row in range(len(texture)):
-    #     for col in range(len(texture[0])):
-    #         im.putpixel((row, col), get_color(texture[row][col]))
-    for row in range(len(out)):
-        for col in range(len(out[0])):
-            color = get_color(out[row][col])
-            alpha = get_alpha(row, col, *size2, 32)
+def get_planet(radius, scales=3):
+    diameter = radius * 2
+    im = Image.new("RGBA", (diameter, diameter))
+    planet_small_map = create_map(16, 16, scales)
+    planet_size = 2**ceil(log2(diameter))
+    planet_map = interpolate_field(planet_small_map, planet_size, planet_size)
+    for row in range(diameter):
+        for col in range(diameter):
+            color = get_color(planet_map[row][col], 255)
+            alpha = get_alpha(row, col, diameter, diameter, radius)
             im.putpixel((row, col), (*color, alpha))
+    # im.save("map.png")
     return im
-    im.save("map.png")

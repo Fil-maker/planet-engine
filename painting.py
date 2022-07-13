@@ -49,15 +49,15 @@ def interpolate_field(field, to_height, to_width):
     return outer_field
 
 
-def create_map(height: int, width: int, scales=4):
+def create_map(height: int, width: int, scales=3):
     levels = min(int(log2(height)), int(log2(width)), scales)
-    compressions = [2 ** (levels - s) for s in range(levels)]
+    compressions = [2 ** (levels - s) for s in range(0, levels)]
     amplitudes = [randint(-255, 255) for _ in range(levels)]
     phases = [randint(-180, 180) for _ in range(levels)]
     maps = [smooth_field(
         interpolate_field(
             create_field(height // compressions[l], width // compressions[l]),
-            height, width), rounding=4) for l in range(levels)]
+            height, width), rounding=3) for l in range(levels)]
     outer_map = create_field(height, width, 1)
     for row in range(height):
         for col in range(width):
@@ -67,12 +67,14 @@ def create_map(height: int, width: int, scales=4):
     outer_map = list(map(lambda a: list(map(lambda b: int(b * 255 / ma), a)), outer_map))
     return outer_map
 
+if __name__ == '__main__':
+    paint_size = paint_height, paint_width = 256, 256
+    map_r, map_g, map_b = [
+        interpolate_field(create_map(*paint_size, scales=6), to_height=paint_height * 4, to_width=paint_width * 4) for _
+        in range(3)]
+    im = Image.new("RGB", (paint_height * 4, paint_width * 4))
+    for row in range(paint_height * 4):
+        for col in range(paint_width * 4):
+            im.putpixel((row, col), (map_r[row][col], map_g[row][col], map_b[row][col]))
 
-paint_size = paint_height, paint_width = 256, 256
-map_r, map_g, map_b = [interpolate_field(create_map(*paint_size, scales=6), to_height=paint_height * 4, to_width=paint_width * 4) for _ in range(3)]
-im = Image.new("RGB", (paint_height * 4, paint_width * 4))
-for row in range(paint_height * 4):
-    for col in range(paint_width * 4):
-        im.putpixel((row, col), (map_r[row][col], map_g[row][col], map_b[row][col]))
-
-im.save("paint.png")
+    im.save("paint.png")

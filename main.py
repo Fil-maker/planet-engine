@@ -1,5 +1,6 @@
 import pygame
 import random
+from interpolation import get_planet
 
 
 class Timer:
@@ -66,9 +67,9 @@ class Vector:
         return (vector.x ** 2 + vector.y ** 2) ** 0.5
 
 
-class Ball:
-
+class Ball(pygame.sprite.Sprite):
     def __init__(self, mass, radius, color, start_point, path_color=None):
+        pygame.sprite.Sprite.__init__(self)
         self.mass = mass
         self.radius = radius
         self.color = color
@@ -81,6 +82,11 @@ class Ball:
             self.path_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         else:
             self.path_color = path_color
+        image = get_planet(radius)
+        mode = image.mode
+        size = image.size
+        data = image.tobytes()
+        self.image = pygame.image.fromstring(data, size, mode)
 
     def calculate_force(self, balls):
         force = Vector()
@@ -111,12 +117,18 @@ def paint():
                 pygame.draw.line(screen, ball.path_color, (path[point - 1] - offset_vec - offset_object.position).get(),
                                  (path[point] - offset_vec - offset_object.position).get(), 3)
         for ball in balls:
-            pygame.draw.circle(screen, ball.color,
-                               ((ball.position.x - offset_object.position.x - offset[0]),
-                                (ball.position.y - offset_object.position.y - offset[1])), ball.radius)
+            screen.blit(ball.image, ((ball.position - offset_object.position - offset_vec - Vector(ball.radius, ball.radius)).get()))
+            # pygame.draw.circle(screen, ball.color, ((ball.position - offset_object.position - offset_vec).get()), ball.radius, width=2)
     else:
         for ball in balls:
-            pygame.draw.circle(screen, ball.color, ball.position.get(), ball.radius)
+            path = ball.path.stack
+            for point in range(1, len(path)):
+                pygame.draw.line(screen, ball.path_color, (path[point - 1] - basic_offset).get(),
+                                 (path[point] - basic_offset).get(), 3)
+        for ball in balls:
+            screen.blit(ball.image, (
+                (ball.position - basic_offset - Vector(ball.radius, ball.radius)).get()))
+            # pygame.draw.circle(screen, ball.color, ball.position.get(), ball.radius)
 
 
 def update_planets():
@@ -129,15 +141,31 @@ def update_planets():
     for i in range(len(balls)):
         balls[i].update(balls[:i] + balls[i + 1:])
 
+def process_keys():
+    for key in pressed_keys:
+        global basic_offset
+        if key == pygame.K_UP:
+            basic_offset += Vector(0, -CAMERA_SPEED)
+        if key == pygame.K_DOWN:
+            basic_offset += Vector(0, CAMERA_SPEED)
+        if key == pygame.K_LEFT:
+            basic_offset += Vector(-CAMERA_SPEED, 0)
+        if key == pygame.K_RIGHT:
+            basic_offset += Vector(CAMERA_SPEED, 0)
 
 # Constants
 GRAVITY_CONSTANT = 0.01
 PATH_LENGTH_SECONDS = 7
+CAMERA_SPEED = 25
 
 size = width, height = 1900, 1000
 FPS = 60
 time_to_frame = 1000 / FPS
 running = True
+pressed_keys = []
+
+offset_object = None
+basic_offset = Vector()
 
 pygame.init()
 screen = pygame.display.set_mode(size, pygame.RESIZABLE)
@@ -146,26 +174,30 @@ clock = pygame.time.Clock()
 flip_timer = Timer(time_to_frame)
 flip_timer.set_func(update_planets)
 
-offset_object = None
 
-ball_red = Ball(200, 30, pygame.Color("red"), Vector(600, 0))
-ball_green = Ball(40, 20, pygame.Color("green"), Vector(250, 0))
-ball_blue = Ball(1000, 70, pygame.Color("blue"), Vector(0, 0))
-moon_of_red = Ball(15, 10, pygame.Color("white"), Vector(680, 0))
+ball_green = Ball(40, 50, pygame.Color("green"), Vector(250, 0))
+ball_red = Ball(200, 32, pygame.Color("red"), Vector(600, 0))
+moon_of_red = Ball(15, 16, pygame.Color("white"), Vector(700, 0))
+ball_blue = Ball(1000, 120, pygame.Color("blue"), Vector(0, 0))
 
 ball_red.velocity += Vector(.0, -.15)
 ball_green.velocity += Vector(.0, -.2)
 moon_of_red.velocity += ball_red.velocity + Vector(.0, -0.15)
 
 balls = [ball_red, ball_green, ball_blue, moon_of_red]
-offset_object = balls[2]
+# offset_object = balls[2]
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT or event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             running = False
+        if event.type == pygame.KEYDOWN:
+            pressed_keys.append(event.key)
+        if event.type == pygame.KEYUP:
+            pressed_keys.remove(event.key)
         if event.type == pygame.WINDOWRESIZED:
             width, height = pygame.display.get_surface().get_size()
     flip_timer.update()
+    process_keys()
     paint()
     flip_timer.tick()
     pygame.display.flip()
