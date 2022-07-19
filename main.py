@@ -9,6 +9,7 @@ class Timer:
         self.duration = duration
         self.current_time = 0
         self.done = False
+        self.func = None
 
     def set_func(self, func):
         self.func = func
@@ -24,6 +25,18 @@ class Timer:
         if self.current_time >= self.duration:
             self.done = False
             self.current_time = 0
+
+
+class PressingTimer(Timer):
+    def tick(self):
+        pass
+
+    def press(self):
+        if self.done:
+            self.done = False
+            self.current_time = 0
+            return True
+        return False
 
 
 class LimitedSizeStack:
@@ -109,15 +122,16 @@ class Ball(pygame.sprite.Sprite):
 def paint():
     screen.fill(pygame.Color("black"))
     if offset_object is not None:
-        offset = (offset_object.position.x - width // 2, offset_object.position.y - height // 2)
         offset_vec = Vector(offset_object.position.x - width // 2, offset_object.position.y - height // 2)
         for ball in balls:
             path = ball.path.stack
             for point in range(1, len(path)):
-                pygame.draw.line(screen, ball.path_color, (path[point - 1] - offset_vec - offset_object.position).get(),
-                                 (path[point] - offset_vec - offset_object.position).get(), 3)
+                pygame.draw.line(screen, ball.path_color,
+                                 (path[point - 1] - offset_vec - offset_object.position - basic_offset).get(),
+                                 (path[point] - offset_vec - offset_object.position - basic_offset).get(), 3)
         for ball in balls:
-            screen.blit(ball.image, ((ball.position - offset_object.position - offset_vec - Vector(ball.radius, ball.radius)).get()))
+            screen.blit(ball.image, (
+                (ball.position - offset_object.position - basic_offset - offset_vec - Vector(ball.radius, ball.radius)).get()))
             # pygame.draw.circle(screen, ball.color, ((ball.position - offset_object.position - offset_vec).get()), ball.radius, width=2)
     else:
         for ball in balls:
@@ -141,9 +155,10 @@ def update_planets():
     for i in range(len(balls)):
         balls[i].update(balls[:i] + balls[i + 1:])
 
+
 def process_keys():
     for key in pressed_keys:
-        global basic_offset
+        global basic_offset, offset_pointer, offset_object, balls
         if key == pygame.K_UP:
             basic_offset += Vector(0, -CAMERA_SPEED)
         if key == pygame.K_DOWN:
@@ -152,6 +167,21 @@ def process_keys():
             basic_offset += Vector(-CAMERA_SPEED, 0)
         if key == pygame.K_RIGHT:
             basic_offset += Vector(CAMERA_SPEED, 0)
+        if key == pygame.K_KP_PLUS and change_focus.press() is True:
+            offset_pointer = (offset_pointer + 1) % len(balls)
+            for ball in balls:
+                n_path = []
+                # for point in ball.path.stack:
+                #     if offset_object is not None:
+                #         n_path.append(point + offset_object.position - balls[offset_pointer].position)
+                ball.path.stack = n_path
+            # if offset_object:
+            #     basic_offset += Vector(offset_object.position.x - width // 2, offset_object.position.y - height // 2)
+            offset_object = balls[offset_pointer]
+            offset_object.path.stack = []
+            # basic_offset -= Vector(offset_object.position.x - width // 2, offset_object.position.y - height // 2)
+            basic_offset = Vector()
+
 
 # Constants
 GRAVITY_CONSTANT = 0.01
@@ -173,7 +203,8 @@ screen = pygame.display.set_mode(size, pygame.RESIZABLE)
 clock = pygame.time.Clock()
 flip_timer = Timer(time_to_frame)
 flip_timer.set_func(update_planets)
-
+change_focus = PressingTimer(1000)
+timers = [flip_timer, change_focus]
 
 ball_green = Ball(40, 50, pygame.Color("green"), Vector(250, 0))
 ball_red = Ball(200, 32, pygame.Color("red"), Vector(600, 0))
@@ -184,6 +215,7 @@ ball_red.velocity += Vector(.0, -.15)
 ball_green.velocity += Vector(.0, -.2)
 moon_of_red.velocity += ball_red.velocity + Vector(.0, -0.15)
 
+offset_pointer = 0
 balls = [ball_red, ball_green, ball_blue, moon_of_red]
 # offset_object = balls[2]
 while running:
@@ -196,9 +228,11 @@ while running:
             pressed_keys.remove(event.key)
         if event.type == pygame.WINDOWRESIZED:
             width, height = pygame.display.get_surface().get_size()
-    flip_timer.update()
+    for timer in timers:
+        timer.update()
     process_keys()
     paint()
-    flip_timer.tick()
+    for timer in timers:
+        timer.tick()
     pygame.display.flip()
     clock.tick(FPS)
