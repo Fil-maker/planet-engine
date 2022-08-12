@@ -57,24 +57,27 @@ def create_map(height: int, width: int, scales=3):
     maps = [smooth_field(
         interpolate_field(
             create_field(height // compressions[l], width // compressions[l]),
-            height, width), rounding=3) for l in range(levels)]
+            height, width), rounding=2) for l in range(levels)]
     outer_map = create_field(height, width, 1)
     for row in range(height):
         for col in range(width):
             for f in range(levels):
                 outer_map[row][col] += amplitudes[f] * sin(phases[f] * maps[f][row][col])
-    ma = max(map(lambda a: max(a), outer_map))
-    outer_map = list(map(lambda a: list(map(lambda b: int(b * 255 / ma), a)), outer_map))
+    maxa = max(map(lambda a: max(a), outer_map))
+    mina = min(map(lambda a: min(a), outer_map))
+    outer_map = list(map(lambda a: list(map(lambda b: int((b - mina) * 255 / (maxa - mina)), a)), outer_map))
     return outer_map
 
+
 if __name__ == '__main__':
+    expand_coefficient = 4
     paint_size = paint_height, paint_width = 256, 256
     map_r, map_g, map_b = [
-        interpolate_field(create_map(*paint_size, scales=6), to_height=paint_height * 4, to_width=paint_width * 4) for _
+        interpolate_field(create_map(*paint_size, scales=3), to_height=paint_height * expand_coefficient, to_width=paint_width * expand_coefficient) for _
         in range(3)]
-    im = Image.new("RGB", (paint_height * 4, paint_width * 4))
-    for row in range(paint_height * 4):
-        for col in range(paint_width * 4):
+    im = Image.new("RGB", (paint_height * expand_coefficient, paint_width * expand_coefficient))
+    for row in range(paint_height * expand_coefficient):
+        for col in range(paint_width * expand_coefficient):
             im.putpixel((row, col), (map_r[row][col], map_g[row][col], map_b[row][col]))
 
     im.save("paint.png")

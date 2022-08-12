@@ -1,6 +1,6 @@
 import pygame
 import random
-from interpolation import get_planet
+from interpolation import get_planet, get_star
 
 
 class Timer:
@@ -119,6 +119,17 @@ class Ball(pygame.sprite.Sprite):
                 self.velocity *= -1
 
 
+class Star(Ball):
+    def __init__(self, mass, radius, color, start_point, path_color=None):
+        super(Star, self).__init__(mass, radius, color, start_point, path_color)
+        image = get_star(radius, self.color)
+        mode = image.mode
+        size = image.size
+        data = image.tobytes()
+        self.image = pygame.image.fromstring(data, size, mode)
+
+
+
 def paint():
     screen.fill(pygame.Color("black"))
     if offset_object is not None:
@@ -208,8 +219,8 @@ timers = [flip_timer, change_focus]
 
 ball_green = Ball(40, 50, pygame.Color("green"), Vector(250, 0))
 ball_red = Ball(200, 32, pygame.Color("red"), Vector(600, 0))
-moon_of_red = Ball(15, 16, pygame.Color("white"), Vector(700, 0))
-ball_blue = Ball(1000, 120, pygame.Color("blue"), Vector(0, 0))
+moon_of_red = Star(15, 16, pygame.Color("white"), Vector(700, 0))
+ball_blue = Star(1000, 120, pygame.Color("yellow"), Vector(0, 0))
 
 ball_red.velocity += Vector(.0, -.15)
 ball_green.velocity += Vector(.0, -.2)
